@@ -1,38 +1,44 @@
 import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-const WS_URL = 'ws://192.168.0.213:8080';
+
+const WS_URL = process.env.EXPO_PUBLIC_WS_URL;
 
 export default function App() {
   const [status, setStatus] = useState('Łączenie...');
+  const [connected, setConnected] = useState(false);
 
   useEffect(() => {
     const ws = new WebSocket(WS_URL);
 
     ws.onopen = () => {
-      console.log('Połączono z serwerem!');
-      setStatus('Połączono z serwerem ✓');
+      setStatus('Połączono z serwerem');
+      setConnected(true);
     };
 
-    ws.onerror = (e) => {
-      console.log('Błąd:', e.message);
-      setStatus('Błąd połączenia ✗');
+    ws.onerror = () => {
+      setStatus('Błąd połączenia');
+      setConnected(false);
     };
 
     ws.onclose = () => {
-      console.log('Rozłączono');
       setStatus('Rozłączono');
+      setConnected(false);
+    };
+
+    ws.onmessage = (e) => {
+      console.log('Wiadomość od serwera:', e.data);
     };
 
     return () => ws.close();
   }, []);
 
-  const connected = status.includes('✓');
-
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Shoplyst</Text>
-      <View style={[styles.badge, connected ? styles.badgeOk : styles.badgeWaiting]}>
-        <Text style={[styles.badgeText, connected ? styles.badgeTextOk : styles.badgeTextWaiting]}>
+      <Text style={styles.title}>🛒 Shoplyst</Text>
+
+      <View style={[styles.statusBadge, connected ? styles.statusOk : styles.statusWaiting]}>
+        <View style={[styles.dot, connected ? styles.dotOk : styles.dotWaiting]} />
+        <Text style={[styles.statusText, connected ? styles.statusTextOk : styles.statusTextWaiting]}>
           {status}
         </Text>
       </View>
@@ -43,35 +49,50 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#FAFAF8',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 16,
+    gap: 20,
   },
   title: {
-    fontSize: 32,
-    fontWeight: '600',
-    letterSpacing: -0.5,
+    fontSize: 36,
+    fontWeight: '700',
+    letterSpacing: -1,
+    color: '#1A1A1A',
   },
-  badge: {
-    paddingVertical: 8,
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 10,
     paddingHorizontal: 20,
-    borderRadius: 20,
+    borderRadius: 24,
   },
-  badgeOk: {
+  statusOk: {
     backgroundColor: '#E1F5EE',
   },
-  badgeWaiting: {
+  statusWaiting: {
     backgroundColor: '#F1EFE8',
   },
-  badgeText: {
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  dotOk: {
+    backgroundColor: '#1D9E75',
+  },
+  dotWaiting: {
+    backgroundColor: '#A09A8A',
+  },
+  statusText: {
     fontSize: 14,
     fontWeight: '500',
   },
-  badgeTextOk: {
+  statusTextOk: {
     color: '#085041',
   },
-  badgeTextWaiting: {
+  statusTextWaiting: {
     color: '#5F5E5A',
   },
 });
