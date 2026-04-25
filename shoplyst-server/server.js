@@ -1,8 +1,9 @@
 const { WebSocketServer } = require('ws');
 
-const PORT = 8080;
+const PORT = process.env.PORT || 8080;
 const wss = new WebSocketServer({ port: PORT });
 
+// In-memory list state
 let items = [];
 
 console.log(`Server running on ws://localhost:${PORT}`);
@@ -10,6 +11,7 @@ console.log(`Server running on ws://localhost:${PORT}`);
 wss.on('connection', (ws) => {
   console.log('Client connected. Active clients:', wss.clients.size);
 
+  // Send current list to newly connected client
   ws.send(JSON.stringify({ type: 'init', items }));
 
   ws.on('message', (message) => {
