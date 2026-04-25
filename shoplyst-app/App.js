@@ -13,7 +13,7 @@ import {
 const WS_URL = process.env.EXPO_PUBLIC_WS_URL;
 
 export default function App() {
-  const [status, setStatus] = useState('Łączenie...');
+  const [status, setStatus] = useState('Connecting...');
   const [connected, setConnected] = useState(false);
   const [items, setItems] = useState([]);
   const [input, setInput] = useState('');
@@ -23,23 +23,38 @@ export default function App() {
     ws.current = new WebSocket(WS_URL);
 
     ws.current.onopen = () => {
-      setStatus('Połączono');
+      setStatus('Connected');
       setConnected(true);
     };
 
     ws.current.onerror = () => {
-      setStatus('Błąd połączenia');
+      setStatus('Connection error');
       setConnected(false);
     };
 
     ws.current.onclose = () => {
-      setStatus('Rozłączono');
+      setStatus('Disconnected');
       setConnected(false);
     };
 
     ws.current.onmessage = (e) => {
-      const name = e.data;
-      setItems((prev) => [...prev, { id: Date.now().toString(), name }]);
+      const data = JSON.parse(e.data);
+
+      if (data.type === 'init') {
+        setItems(data.items);
+      }
+
+      if (data.type === 'add') {
+        setItems((prev) => [...prev, data.item]);
+      }
+
+      if (data.type === 'toggle') {
+        setItems((prev) =>
+          prev.map((item) =>
+            item.id === data.id ? { ...item, done: !item.done } : item
+          )
+        );
+      }
     };
 
     return () => ws.current.close();
@@ -47,8 +62,13 @@ export default function App() {
 
   const addItem = () => {
     if (!input.trim() || !connected) return;
-    ws.current.send(input.trim());
+    ws.current.send(JSON.stringify({ type: 'add', name: input.trim() }));
     setInput('');
+  };
+
+  const toggleItem = (id) => {
+    if (!connected) return;
+    ws.current.send(JSON.stringify({ type: 'toggle', id }));
   };
 
   return (
@@ -56,7 +76,7 @@ export default function App() {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      {/* Nagłówek */}
+      {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>🛒 Shoplyst</Text>
         <View style={[styles.statusBadge, connected ? styles.statusOk : styles.statusWaiting]}>
@@ -67,28 +87,33 @@ export default function App() {
         </View>
       </View>
 
-      {/* Lista produktów */}
+      {/* Item list */}
       <FlatList
         data={items}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
         renderItem={({ item }) => (
-          <View style={styles.item}>
-            <Text style={styles.itemText}>{item.name}</Text>
-          </View>
+          <TouchableOpacity style={styles.item} onPress={() => toggleItem(item.id)}>
+            <View style={[styles.checkbox, item.done && styles.checkboxDone]}>
+              {item.done && <Text style={styles.checkmark}>✓</Text>}
+            </View>
+            <Text style={[styles.itemText, item.done && styles.itemTextDone]}>
+              {item.name}
+            </Text>
+          </TouchableOpacity>
         )}
         ListEmptyComponent={
-          <Text style={styles.empty}>Dodaj pierwszy produkt 👇</Text>
+          <Text style={styles.empty}>Add your first item 👇</Text>
         }
       />
 
-      {/* Pole dodawania */}
+      {/* Input row */}
       <View style={styles.inputRow}>
         <TextInput
           style={styles.input}
           value={input}
           onChangeText={setInput}
-          placeholder="np. mleko, chleb..."
+          placeholder="e.g. milk, bread..."
           placeholderTextColor="#A09A8A"
           onSubmitEditing={addItem}
           returnKeyType="done"
@@ -98,7 +123,7 @@ export default function App() {
           onPress={addItem}
           disabled={!connected}
         >
-          <Text style={styles.buttonText}>Dodaj</Text>
+          <Text style={styles.buttonText}>Add</Text>
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
@@ -153,10 +178,36 @@ const styles = StyleSheet.create({
     padding: 16,
     borderWidth: 1,
     borderColor: '#EEECE6',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: '#EEECE6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxDone: {
+    backgroundColor: '#1D9E75',
+    borderColor: '#1D9E75',
+  },
+  checkmark: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '700',
   },
   itemText: {
     fontSize: 16,
     color: '#1A1A1A',
+    flex: 1,
+  },
+  itemTextDone: {
+    textDecorationLine: 'line-through',
+    color: '#A09A8A',
   },
   empty: {
     textAlign: 'center',
